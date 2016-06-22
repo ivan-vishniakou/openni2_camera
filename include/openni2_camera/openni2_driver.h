@@ -54,14 +54,17 @@
 #include "openni2_camera/GetSerial.h"
 
 #include <ros/ros.h>
+#include "openni2_camera/nite_skeletal_tracker.h"
+
 
 namespace openni2_wrapper
 {
 
+
 class OpenNI2Driver
 {
 public:
-  OpenNI2Driver(ros::NodeHandle& n, ros::NodeHandle& pnh) ;
+  OpenNI2Driver(ros::NodeHandle& n, ros::NodeHandle& pnh);
 
 private:
   typedef openni2_camera::OpenNI2Config Config;
@@ -114,7 +117,7 @@ private:
 
   /** \brief get_serial server*/
   ros::ServiceServer get_serial_server;
-
+  
   /** \brief reconfigure server*/
   boost::shared_ptr<ReconfigureServer> reconfigure_server_;
   bool config_init_;
@@ -172,6 +175,9 @@ private:
   bool use_device_time_;
 
   Config old_config_;
+
+
+  NITESkeletalTracker nite_skeletal_tracker_;
 };
 
 }

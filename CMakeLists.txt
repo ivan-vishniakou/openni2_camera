@@ -1,7 +1,15 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(openni2_camera)
 
-find_package(catkin REQUIRED camera_info_manager dynamic_reconfigure image_transport  nodelet sensor_msgs roscpp message_generation)
+find_package(catkin REQUIRED 
+  camera_info_manager 
+  dynamic_reconfigure
+  image_transport
+  nodelet sensor_msgs
+  roscpp
+  message_generation
+  libnite2
+  cob_perception_msgs)
 
 find_package(Boost REQUIRED COMPONENTS system thread)
 
@@ -15,7 +23,26 @@ endif()
 generate_dynamic_reconfigure_options(cfg/OpenNI2.cfg)
 add_service_files(FILES
   GetSerial.srv)
-generate_messages()
+
+## Generate messages in the 'msg' folder
+add_message_files(
+  DIRECTORY
+    msg
+  FILES 
+    NitePeople.msg
+    NiteSkeleton.msg
+    NiteJoint.msg
+)
+
+generate_messages(DEPENDENCIES geometry_msgs)
+
+# Find Nite2
+
+add_custom_command(
+    TARGET cob_body_tracker
+    POST_BUILD
+    COMMAND ${PROJECT_SOURCE_DIR}/launch/create_nite2_link.bash
+)
 
 catkin_package(
   INCLUDE_DIRS include
@@ -41,8 +68,9 @@ add_library(openni2_wrapper
    src/openni2_device_manager.cpp
    src/openni2_exception.cpp
    src/openni2_video_mode.cpp
+   src/nite_skeletal_tracker.cpp
 )
-target_link_libraries(openni2_wrapper ${catkin_LIBRARIES} ${PC_OPENNI2_LIBRARIES} ${Boost_LIBRARIES} )
+target_link_libraries(openni2_wrapper ${catkin_LIBRARIES} ${PC_OPENNI2_LIBRARIES} ${Boost_LIBRARIES})
 
 add_executable(test_wrapper test/test_wrapper.cpp )
 target_link_libraries(test_wrapper openni2_wrapper ${Boost_LIBRARIES})
@@ -50,25 +78,26 @@ target_link_libraries(test_wrapper openni2_wrapper ${Boost_LIBRARIES})
 add_library(openni2_driver_lib
    src/openni2_driver.cpp
 )
-target_link_libraries(openni2_driver_lib openni2_wrapper ${catkin_LIBRARIES} ${Boost_LIBRARIES} )
+target_link_libraries(openni2_driver_lib openni2_wrapper ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 add_dependencies(openni2_driver_lib ${PROJECT_NAME}_gencfg ${PROJECT_NAME}_generate_messages_cpp)
 
 add_library(openni2_camera_nodelet
    ros/openni2_camera_nodelet.cpp
 )
-target_link_libraries(openni2_camera_nodelet openni2_driver_lib ${catkin_LIBRARIES} ${Boost_LIBRARIES} )
+target_link_libraries(openni2_camera_nodelet openni2_driver_lib ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 add_dependencies(openni2_camera_nodelet ${PROJECT_NAME}_gencfg)
 
 add_executable(openni2_camera_node
    ros/openni2_camera_node.cpp
 )
-target_link_libraries(openni2_camera_node openni2_driver_lib ${catkin_LIBRARIES} ${Boost_LIBRARIES} )
+target_link_libraries(openni2_camera_node openni2_driver_lib ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 add_dependencies(openni2_camera_node ${PROJECT_NAME}_gencfg ${PROJECT_NAME}_generate_messages_cpp)
 
 add_executable(list_devices
    src/list_devices.cpp
 )
 target_link_libraries(list_devices openni2_wrapper)
+
 
 if (UNIX AND NOT APPLE)
   add_executable(usb_reset src/usb_reset.c)

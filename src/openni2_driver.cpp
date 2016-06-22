@@ -38,8 +38,10 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread/thread.hpp>
 
+
 namespace openni2_wrapper
 {
+
 
 OpenNI2Driver::OpenNI2Driver(ros::NodeHandle& n, ros::NodeHandle& pnh) :
     nh_(n),
@@ -52,9 +54,9 @@ OpenNI2Driver::OpenNI2Driver(ros::NodeHandle& n, ros::NodeHandle& pnh) :
     ir_subscribers_(false),
     color_subscribers_(false),
     depth_subscribers_(false),
-    depth_raw_subscribers_(false)
+    depth_raw_subscribers_(false),
+    nite_skeletal_tracker_(n, pnh)
 {
-
   genVideoModeTableMap();
 
   readConfigFromParameterServer();
@@ -64,7 +66,6 @@ OpenNI2Driver::OpenNI2Driver(ros::NodeHandle& n, ros::NodeHandle& pnh) :
   // Initialize dynamic reconfigure
   reconfigure_server_.reset(new ReconfigureServer(pnh_));
   reconfigure_server_->setCallback(boost::bind(&OpenNI2Driver::configCb, this, _1, _2));
-
   while (!config_init_)
   {
     ROS_DEBUG("Waiting for dynamic reconfigure configuration.");
@@ -72,8 +73,13 @@ OpenNI2Driver::OpenNI2Driver(ros::NodeHandle& n, ros::NodeHandle& pnh) :
   }
   ROS_DEBUG("Dynamic reconfigure configuration received.");
 
+
   advertiseROSTopics();
 
+  /*
+   * NiteSkeletal tracking
+   */
+  nite_skeletal_tracker_.initialize();
 }
 
 void OpenNI2Driver::advertiseROSTopics()
@@ -880,6 +886,7 @@ int OpenNI2Driver::lookupVideoModeFromDynConfig(int mode_nr, OpenNI2VideoMode& v
 
   return ret;
 }
+
 
 sensor_msgs::ImageConstPtr OpenNI2Driver::rawToFloatingPointConversion(sensor_msgs::ImageConstPtr raw_image)
 {
