@@ -18,7 +18,7 @@ NITESkeletalTracker::NITESkeletalTracker(ros::NodeHandle& n, ros::NodeHandle& pn
     nh_(n),
     pnh_(pnh)
 {
-  ROS_WARN("CREATIN NITE SKELETRACK");
+  ROS_WARN("CREATING NITE USER TRACKER");
 }
 
 
@@ -40,6 +40,8 @@ void NITESkeletalTracker::initialize() {
   ROS_WARN_ONCE("PEOPLE");
   pub_people_track_ = pnh_.advertise<openni2_camera::NitePeople>("people", 5);
   user_tracker_update_timer_ = nh_.createTimer(ros::Duration(0.1), &NITESkeletalTracker::userTrackerUpdate, this);
+
+  pnh_.param("depth_frame_id", frame_id_, std::string("/openni_depth_optical_frame"));
 }
 
 
@@ -62,8 +64,11 @@ void NITESkeletalTracker::userTrackerUpdate(const ros::TimerEvent& event)
 {
   nite_rc_ = user_tracker_.readFrame(&user_tracker_frame_);
   if (nite_rc_ == nite::STATUS_OK)
-  {    
+  {
     openni2_camera::NitePeople people_msg;
+    people_msg.header.stamp =  ros::Time::now();
+    people_msg.header.frame_id = frame_id_;
+
     const nite::Array<nite::UserData>& users = user_tracker_frame_.getUsers();
     for (int i = 0; i < users.getSize(); ++i)
     {
@@ -72,14 +77,14 @@ void NITESkeletalTracker::userTrackerUpdate(const ros::TimerEvent& event)
       if (user.isNew())
       {
         user_tracker_.startSkeletonTracking(user.getId());
-        ROS_INFO_STREAM("Found a new user.");
+        ROS_INFO_STREAM("Found a new user. Id "<< user.getId());
       }
       else if (user.getSkeleton().getState() == nite::SKELETON_TRACKED)
       {
         openni2_camera::NiteSkeleton skeleton;
         skeleton.user_id = user.getId();
         people_msg.skeletons.push_back(skeleton);
-        ROS_INFO_STREAM("Now tracking user " << user.getId());
+        ///ROS_INFO_STREAM("Now tracking user " << user.getId());
         skeleton.joints.push_back(SkeletonJointToNiteJointMsg(user.getSkeleton().getJoint(nite::JOINT_HEAD)));
         skeleton.joints.push_back(SkeletonJointToNiteJointMsg(user.getSkeleton().getJoint(nite::JOINT_NECK)));
         skeleton.joints.push_back(SkeletonJointToNiteJointMsg(user.getSkeleton().getJoint(nite::JOINT_LEFT_SHOULDER)));

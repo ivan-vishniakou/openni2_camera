@@ -7,7 +7,7 @@
 */
 
 #include <ros/ros.h>
-
+#include <string>
 #include <libnite2/NiTE.h>
 #include <std_srvs/Empty.h>
 #include <std_msgs/String.h>
@@ -42,6 +42,7 @@ private:
 
   ros::Publisher pub_people_track_;
 
+  std::string frame_id_;
   bool g_visible_users_[MAX_USERS];
   nite::SkeletonState g_skeleton_states_[MAX_USERS];
   nite::UserTracker user_tracker_;
