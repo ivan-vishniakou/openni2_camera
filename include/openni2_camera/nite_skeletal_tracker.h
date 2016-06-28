@@ -15,6 +15,12 @@
 #include "openni2_camera/NiteSkeleton.h"
 #include "openni2_camera/NiteJoint.h"
 
+#include <image_transport/image_transport.h>
+#include <image_transport/subscriber_filter.h>
+#include <cv_bridge/cv_bridge.h>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
+
 namespace openni2_wrapper
 {
 
@@ -53,6 +59,14 @@ private:
   void updateUserState(const nite::UserData& user, unsigned long long ts);
   EnumNITETrackerState people_tracker_state_;
   openni2_camera::NiteJoint SkeletonJointToNiteJointMsg(nite::SkeletonJoint skeleton_joint);
+
+
+  //EXPERI-MENTAL
+  image_transport::ImageTransport* it_;
+  image_transport::SubscriberFilter image_sub_;
+  void imageCallback(const sensor_msgs::ImageConstPtr& rgb_image_msg);
+  image_transport::Publisher image_pub_;
+
 };
 
 

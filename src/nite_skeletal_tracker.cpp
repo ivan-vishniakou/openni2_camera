@@ -11,6 +11,7 @@
 #include <boost/thread/thread.hpp>
 #include <ros/ros.h>
 
+
 namespace openni2_wrapper
 {
 
@@ -21,6 +22,163 @@ NITESkeletalTracker::NITESkeletalTracker(ros::NodeHandle& n, ros::NodeHandle& pn
   ROS_WARN("CREATING NITE USER TRACKER");
 }
 
+
+void NITESkeletalTracker::imageCallback(const sensor_msgs::ImageConstPtr& color_image_msg)
+{
+  cv_bridge::CvImageConstPtr cv_ptr;
+
+  try
+  {
+    cv_ptr = cv_bridge::toCvShare(color_image_msg, sensor_msgs::image_encodings::BGR8);
+    //ROS_WARN("PeopleDetection: cv_bridge working");
+  }catch (cv_bridge::Exception& e)
+  {
+    ROS_ERROR("PeopleDetection: cv_bridge exception: %s", e.what());
+    return;
+  }
+
+  cv::Mat color_image_ = cv_ptr->image;
+  int height = color_image_msg->height;
+  int width = color_image_msg->width;
+
+  nite_rc_ = user_tracker_.readFrame(&user_tracker_frame_);
+  if (nite_rc_ == nite::STATUS_OK)
+  {
+    openni2_camera::NitePeople people_msg;
+    people_msg.header.stamp =  ros::Time::now();
+    people_msg.header.frame_id = frame_id_;
+
+    const nite::Array<nite::UserData>& users = user_tracker_frame_.getUsers();
+    for (int i = 0; i < users.getSize(); ++i)
+    {
+      const nite::UserData& user = users[i];
+      updateUserState(user,user_tracker_frame_.getTimestamp());
+      if (user.isNew())
+      {
+        user_tracker_.startSkeletonTracking(user.getId());
+        ROS_INFO_STREAM("Found a new user. Id "<< user.getId());
+      }
+      else if (user.getSkeleton().getState() == nite::SKELETON_TRACKED)
+      {
+        openni2_camera::NiteSkeleton skeleton;
+        skeleton.user_id = user.getId();
+        people_msg.skeletons.push_back(skeleton);
+        ROS_INFO_STREAM("Now tracking user " << user.getId());
+        skeleton.joints.push_back(SkeletonJointToNiteJointMsg(user.getSkeleton().getJoint(nite::JOINT_HEAD)));
+        skeleton.joints.push_back(SkeletonJointToNiteJointMsg(user.getSkeleton().getJoint(nite::JOINT_NECK)));
+        skeleton.joints.push_back(SkeletonJointToNiteJointMsg(user.getSkeleton().getJoint(nite::JOINT_LEFT_SHOULDER)));
+        skeleton.joints.push_back(SkeletonJointToNiteJointMsg(user.getSkeleton().getJoint(nite::JOINT_RIGHT_SHOULDER)));
+        skeleton.joints.push_back(SkeletonJointToNiteJointMsg(user.getSkeleton().getJoint(nite::JOINT_LEFT_ELBOW)));
+        skeleton.joints.push_back(SkeletonJointToNiteJointMsg(user.getSkeleton().getJoint(nite::JOINT_RIGHT_ELBOW)));
+        skeleton.joints.push_back(SkeletonJointToNiteJointMsg(user.getSkeleton().getJoint(nite::JOINT_LEFT_HAND)));
+        skeleton.joints.push_back(SkeletonJointToNiteJointMsg(user.getSkeleton().getJoint(nite::JOINT_RIGHT_HAND)));
+        skeleton.joints.push_back(SkeletonJointToNiteJointMsg(user.getSkeleton().getJoint(nite::JOINT_TORSO)));
+        skeleton.joints.push_back(SkeletonJointToNiteJointMsg(user.getSkeleton().getJoint(nite::JOINT_LEFT_HIP)));
+        skeleton.joints.push_back(SkeletonJointToNiteJointMsg(user.getSkeleton().getJoint(nite::JOINT_RIGHT_HIP)));
+        skeleton.joints.push_back(SkeletonJointToNiteJointMsg(user.getSkeleton().getJoint(nite::JOINT_LEFT_KNEE)));
+        skeleton.joints.push_back(SkeletonJointToNiteJointMsg(user.getSkeleton().getJoint(nite::JOINT_RIGHT_KNEE)));
+        skeleton.joints.push_back(SkeletonJointToNiteJointMsg(user.getSkeleton().getJoint(nite::JOINT_LEFT_FOOT)));
+        skeleton.joints.push_back(SkeletonJointToNiteJointMsg(user.getSkeleton().getJoint(nite::JOINT_RIGHT_FOOT)));
+        skeleton.position.x = user.getCenterOfMass().x/1000;
+        skeleton.position.y = user.getCenterOfMass().y/1000;
+        skeleton.position.z = user.getCenterOfMass().z/1000;
+        people_msg.skeletons.push_back(skeleton);
+
+        int max_x = width - user.getBoundingBox().max.x;
+        int max_y = user.getBoundingBox().max.y;
+        int min_x = width - user.getBoundingBox().min.x;
+        int min_y = user.getBoundingBox().min.y;
+        
+        cv::rectangle(color_image_, cv::Point(min_x, min_y), cv::Point(max_x, max_y) ,
+        CV_RGB(255, 255, 255), 2);
+
+
+        printf ("bbox: %d %d %d %d\n", min_x, min_y, max_x, max_y);
+        
+        /*
+        if (min_x>0 && max_x>0 && min_y>0 && max_y>0 && max_x<width && max_y<height && min_x<width && min_y<height) {
+          cv::Rect roi(min_x, min_y, max_x, max_y);
+          cv::Mat croppedFaceImage;
+          
+          croppedFaceImage = color_image_(roi).clone();
+          cv_bridge::CvImage out_msg;
+          out_msg.header   = color_image_msg->header; // Same timestamp and tf frame as input image
+          out_msg.encoding = sensor_msgs::image_encodings::BGR8; // Or whatever
+          out_msg.image    = croppedFaceImage; // Your cv::Mat
+
+          image_pub_.publish(out_msg.toImageMsg());
+          
+        }
+        */
+      }
+    }
+          /*
+              cv::Rect roi(100, 100, 200, 200);
+          cv::Mat croppedFaceImage;
+          
+          croppedFaceImage = color_image_(roi).clone();
+          cv_bridge::CvImage out_msg;
+          out_msg.header   = color_image_msg->header; // Same timestamp and tf frame as input image
+          out_msg.encoding = sensor_msgs::image_encodings::BGR8; // Or whatever
+          out_msg.image    = croppedFaceImage; // Your cv::Mat
+
+          image_pub_.publish(out_msg.toImageMsg());
+        */
+    pub_people_track_.publish(people_msg);
+    image_pub_.publish(cv_ptr->toImageMsg());
+  }
+  else
+  {
+    ROS_WARN("Get next frame failed.");
+  }
+
+
+
+
+  //if the list of tracked people not empty, proceed drawing
+  /*
+  if(!tracked_users_->empty())
+  {
+    for(std::list<nite::UserData>::iterator iter_ = tracked_users_->begin();
+        iter_ != tracked_users_->end(); ++iter_)
+    {
+      if((*iter_).getCenterOfMass().x != 0 && (*iter_).getCenterOfMass().y != 0 && (*iter_).getCenterOfMass().z != 0)
+      {
+        int max_x = width - (*iter_).getBoundingBox().max.x;
+        int max_y = (*iter_).getBoundingBox().max.y;
+        int min_x = width - (*iter_).getBoundingBox().min.x;
+        int min_y = (*iter_).getBoundingBox().min.y;
+
+        double center_x = (*iter_).getCenterOfMass().x;
+        double center_y = (*iter_).getCenterOfMass().y;
+
+
+        int r = 255*Colors[(*iter_).getId() % colorCount][0];
+        int g = 255*Colors[(*iter_).getId() % colorCount][1];
+        int b = 255*Colors[(*iter_).getId() % colorCount][2];
+
+        if(drawBoundingBox_)
+        {
+          cv::rectangle(color_image_, cv::Point(min_x, min_y), cv::Point(max_x, max_y) ,
+              CV_RGB(r, g, b), 2);
+        }
+
+        if(drawCenterOfMass_)
+        {
+          cv::circle(color_image_, cv::Point(100, 100), 10, CV_RGB(r, g, b));
+        }
+        if(drawUserName_)
+        {
+          //drawUserName((*iter_), color_image, cv::Point(100, 100));
+        }
+      }
+    }
+  }*/
+  
+  //cv::waitKey(10);
+  // Output modified video stream
+  //image_pub_.publish(cv_ptr->toImageMsg());
+}
 
 
 void NITESkeletalTracker::initialize() {
@@ -39,9 +197,14 @@ void NITESkeletalTracker::initialize() {
   niteStop_ = pnh_.advertiseService("people_tracking/stop", &NITESkeletalTracker::stopNiteCb, this);  
   ROS_WARN_ONCE("PEOPLE");
   pub_people_track_ = pnh_.advertise<openni2_camera::NitePeople>("people", 5);
-  user_tracker_update_timer_ = nh_.createTimer(ros::Duration(0.1), &NITESkeletalTracker::userTrackerUpdate, this);
+  //user_tracker_update_timer_ = nh_.createTimer(ros::Duration(0.1), &NITESkeletalTracker::userTrackerUpdate, this);
 
   pnh_.param("depth_frame_id", frame_id_, std::string("/openni_depth_optical_frame"));
+
+  it_ = new image_transport::ImageTransport(nh_);
+  image_sub_.registerCallback(boost::bind(&NITESkeletalTracker::imageCallback, this, _1));
+  image_sub_.subscribe(*it_, "rgb/image_raw", 1);
+  image_pub_ = it_->advertise("nite_image_out", 1);
 }
 
 

@@ -9,7 +9,9 @@ find_package(catkin REQUIRED
   roscpp
   message_generation
   libnite2
-  cob_perception_msgs)
+  cob_perception_msgs
+  OpenCV
+  cv_bridge REQUIRED)
 
 find_package(Boost REQUIRED COMPONENTS system thread)
 
@@ -47,14 +49,15 @@ add_custom_command(
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES openni2_wrapper
-  CATKIN_DEPENDS camera_info_manager dynamic_reconfigure image_transport nodelet sensor_msgs roscpp message_runtime
-  DEPENDS libopenni2
+  CATKIN_DEPENDS camera_info_manager dynamic_reconfigure image_transport nodelet sensor_msgs roscpp message_runtime 
+  DEPENDS libopenni2 OpenCV
 )
 
 include_directories(include 
                     ${catkin_INCLUDE_DIRS} 
                     ${Boost_INCLUDE_DIRS}
                     ${PC_OPENNI2_INCLUDE_DIRS}
+                    ${OpenCV_INCLUDE_DIRS}
                     )
 
 link_directories(${PC_OPENNI2_LIBRARY_DIRS})
@@ -70,27 +73,27 @@ add_library(openni2_wrapper
    src/openni2_video_mode.cpp
    src/nite_skeletal_tracker.cpp
 )
-target_link_libraries(openni2_wrapper ${catkin_LIBRARIES} ${PC_OPENNI2_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(openni2_wrapper ${catkin_LIBRARIES} ${PC_OPENNI2_LIBRARIES} ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})
 
 add_executable(test_wrapper test/test_wrapper.cpp )
-target_link_libraries(test_wrapper openni2_wrapper ${Boost_LIBRARIES})
+target_link_libraries(test_wrapper openni2_wrapper ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})
 
 add_library(openni2_driver_lib
    src/openni2_driver.cpp
 )
-target_link_libraries(openni2_driver_lib openni2_wrapper ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(openni2_driver_lib openni2_wrapper ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})
 add_dependencies(openni2_driver_lib ${PROJECT_NAME}_gencfg ${PROJECT_NAME}_generate_messages_cpp)
 
 add_library(openni2_camera_nodelet
    ros/openni2_camera_nodelet.cpp
 )
-target_link_libraries(openni2_camera_nodelet openni2_driver_lib ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(openni2_camera_nodelet openni2_driver_lib ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})
 add_dependencies(openni2_camera_nodelet ${PROJECT_NAME}_gencfg)
 
 add_executable(openni2_camera_node
    ros/openni2_camera_node.cpp
 )
-target_link_libraries(openni2_camera_node openni2_driver_lib ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(openni2_camera_node openni2_driver_lib ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${OpenCV_LIBRARIES})
 add_dependencies(openni2_camera_node ${PROJECT_NAME}_gencfg ${PROJECT_NAME}_generate_messages_cpp)
 
 add_executable(list_devices
