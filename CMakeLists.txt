@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(openni2_camera)
 
+
 find_package(catkin REQUIRED 
   camera_info_manager 
   dynamic_reconfigure
@@ -10,8 +11,8 @@ find_package(catkin REQUIRED
   message_generation
   libnite2
   cob_perception_msgs
-  OpenCV
   cv_bridge REQUIRED)
+
 
 find_package(Boost REQUIRED COMPONENTS system thread)
 
