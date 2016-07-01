@@ -16,6 +16,12 @@ uint8 JOINT_LEFT_FOOT = 13
 uint8 JOINT_RIGHT_FOOT = 14
 uint8 JOINT_NUMBER = 15
 
+uint8 SKELETON_NONE = 0
+uint8 SKELETON_CALIBRATION_ERROR_NOT_IN_POSE = 1
+uint8 SKELETON_CALIBRATING = 2
+uint8 SKELETON_TRACKED = 3
+
 uint8 user_id
+uint8 state
 geometry_msgs/Point position
 NiteJoint[] joints
